@@ -1,0 +1,70 @@
+open Classical
+
+def proof : NonconstructiveConstantTime := by
+  -- Introduce the function p and the hypothesis h
+  intro p h
+
+  -- Either p is universally false, or it is not.
+  have h_or : (∀ x, p x = false) ∨ ¬(∀ x, p x = false) := em (∀ x, p x = false)
+  cases h_or with
+  | inl h_all_false =>
+    -- Case 1: p is universally false
+    left
+    funext x
+    exact h_all_false x
+  | inr h_not_all_false =>
+    -- Case 2: p is not universally false
+    right
+
+    -- Prove that there exists some x where p x = true
+    have h_exists : ∃ x, p x = true := by
+      by_contra h2
+      apply h_not_all_false
+      intro x
+      match h3 : p x with
+      | false => rfl
+      | true =>
+        exfalso
+        apply h2
+        exact ⟨x, h3⟩
+
+    -- Let n be the smallest x such that p x = true
+    let n := Nat.find h_exists
+    use n
+    funext x
+
+    -- Properties of Nat.find:
+    -- 1. Values strictly smaller than n are false
+    have h_min : ∀ m < n, p m = false := by
+      intro m hm
+      match hpm : p m with
+      | false => rfl
+      | true =>
+        exfalso
+        exact Nat.find_min h_exists hm hpm
+
+    -- 2. At n, it evaluates to true
+    have hn : p n = true := Nat.find_spec h_exists
+
+    -- Branch on whether x < n or x ≥ n
+    have h_cases : x < n ∨ ¬(x < n) := em (x < n)
+    cases h_cases with
+    | inl hlt =>
+      -- Subcase 2a: x < n
+      have h_if : (if x < n then false else true) = false := if_pos hlt
+      rw [h_if]
+      exact h_min x hlt
+    | inr hge =>
+      -- Subcase 2b: x ≥ n
+      have h_if : (if x < n then false else true) = true := if_neg hge
+      rw [h_if]
+
+      -- Convert ¬(x < n) to n ≤ x
+      have hle : n ≤ x := Nat.le_of_not_lt hge
+
+      -- Prove p x = true by induction starting from n up to x
+      induction hle with
+      | refl =>
+        exact hn
+      | step m _ ih =>
+        exact h m ih
